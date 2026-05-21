@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Configuracoes - Controle de Gastos{% endblock %}
+{% block page_icon %}settings{% endblock %}
+{% block page_title %}Configuracoes{% endblock %}
+
+{% block content %}
+<div class="grid grid-2">
+    <!-- Profile Settings -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="user" style="width: 20px; height: 20px;"></i>
+                Perfil
+            </div>
+        </div>
+        <form id="profileForm">
+            <div style="text-align: center; margin-bottom: 24px;">
+                <img src="{{ current_user.avatar }}" alt="Avatar" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--border-color);">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Nome</label>
+                <input type="text" class="form-input" name="name" value="{{ current_user.name }}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">E-mail</label>
+                <input type="email" class="form-input" name="email" value="{{ current_user.email }}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Nova Senha (deixe em branco para nao alterar)</label>
+                <input type="password" class="form-input" name="password" placeholder="Nova senha">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirmar Nova Senha</label>
+                <input type="password" class="form-input" name="confirm_password" placeholder="Confirmar senha">
+            </div>
+            <button type="button" class="btn btn-primary" onclick="saveProfile()" style="width: 100%;">
+                <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                Salvar Alteracoes
+            </button>
+        </form>
+    </div>
+
+    <!-- System Info -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="info" style="width: 20px; height: 20px;"></i>
+                Informacoes do Sistema
+            </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                <span style="color: var(--text-muted);">Versao</span>
+                <span style="font-weight: 600;">1.0.0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                <span style="color: var(--text-muted);">Funcao</span>
+                <span class="badge {{ 'badge-info' if current_user.role == 'admin' else 'badge-warning' }}">
+                    {{ 'Administrador' if current_user.role == 'admin' else 'Usuario' }}
+                </span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                <span style="color: var(--text-muted);">Status</span>
+                <span class="badge {{ 'badge-success' if current_user.is_active else 'badge-danger' }}">
+                    {{ 'Ativo' if current_user.is_active else 'Inativo' }}
+                </span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                <span style="color: var(--text-muted);">Cadastrado em</span>
+                <span>{{ current_user.created_at.strftime('%d/%m/%Y') }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 12px 0;">
+                <span style="color: var(--text-muted);">ID Publico</span>
+                <span style="font-family: monospace; font-size: 0.85rem;">{{ current_user.public_id }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function saveProfile() {
+    const form = document.getElementById('profileForm');
+    const formData = new FormData(form);
+    const data = {
+        name: formData.get('name'),
+        email: formData.get('email'),
+        password: formData.get('password') || null,
+        confirm_password: formData.get('confirm_password') || null
+    };
+    try {
+        const response = await fetch('/api/settings/profile', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+        });
+        if (response.ok) {
+            showToast('success', 'Sucesso!', 'Perfil atualizado com sucesso.');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            const error = await response.json();
+            showToast('error', 'Erro!', error.error || 'Nao foi possivel atualizar.');
+        }
+    } catch (error) { showToast('error', 'Erro!', 'Erro de conexao.'); }
+}
+</script>
+{% endblock %}

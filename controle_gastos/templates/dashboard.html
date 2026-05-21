@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Controle de Gastos{% endblock %}
+{% block page_icon %}layout-dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="grid grid-4" style="margin-bottom: 32px;">
+    <div class="stat-card animate-fade-in" style="animation-delay: 0.1s;">
+        <div class="stat-header">
+            <div class="stat-label">Receitas do Mes</div>
+            <div class="stat-icon income">
+                <i data-lucide="trending-up" style="width: 24px; height: 24px;"></i>
+            </div>
+        </div>
+        <div class="stat-value" style="color: var(--success);">R$ {{ "%.2f"|format(income_month) }}</div>
+        <div class="stat-change positive">
+            <i data-lucide="arrow-up-right" style="width: 14px; height: 14px;"></i>
+            <span>Este mes</span>
+        </div>
+    </div>
+    <div class="stat-card animate-fade-in" style="animation-delay: 0.2s;">
+        <div class="stat-header">
+            <div class="stat-label">Despesas do Mes</div>
+            <div class="stat-icon expense">
+                <i data-lucide="trending-down" style="width: 24px; height: 24px;"></i>
+            </div>
+        </div>
+        <div class="stat-value" style="color: var(--danger);">R$ {{ "%.2f"|format(expense_month) }}</div>
+        <div class="stat-change negative">
+            <i data-lucide="arrow-down-right" style="width: 14px; height: 14px;"></i>
+            <span>Este mes</span>
+        </div>
+    </div>
+    <div class="stat-card animate-fade-in" style="animation-delay: 0.3s;">
+        <div class="stat-header">
+            <div class="stat-label">Saldo</div>
+            <div class="stat-icon balance">
+                <i data-lucide="wallet" style="width: 24px; height: 24px;"></i>
+            </div>
+        </div>
+        <div class="stat-value" style="color: {{ 'var(--success)' if balance >= 0 else 'var(--danger)' }};">R$ {{ "%.2f"|format(balance) }}</div>
+        <div class="stat-change {{ 'positive' if balance >= 0 else 'negative' }}">
+            <i data-lucide="{{ 'arrow-up-right' if balance >= 0 else 'arrow-down-right' }}" style="width: 14px; height: 14px;"></i>
+            <span>{{ 'Positivo' if balance >= 0 else 'Negativo' }}</span>
+        </div>
+    </div>
+    <div class="stat-card animate-fade-in" style="animation-delay: 0.4s;">
+        <div class="stat-header">
+            <div class="stat-label">Transacoes</div>
+            <div class="stat-icon total">
+                <i data-lucide="receipt" style="width: 24px; height: 24px;"></i>
+            </div>
+        </div>
+        <div class="stat-value" style="color: #a855f7;">{{ recent_transactions|length }}</div>
+        <div class="stat-change">
+            <span>Recentes</span>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid grid-2" style="margin-bottom: 32px;">
+    <div class="card animate-fade-in" style="animation-delay: 0.5s;">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="bar-chart-2" style="width: 20px; height: 20px;"></i>
+                Evolucao Mensal
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="monthlyChart"></canvas>
+        </div>
+    </div>
+    <div class="card animate-fade-in" style="animation-delay: 0.6s;">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="pie-chart" style="width: 20px; height: 20px;"></i>
+                Gastos por Categoria
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="categoryChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions -->
+<div class="card animate-fade-in" style="animation-delay: 0.7s;">
+    <div class="card-header">
+        <div class="card-title">
+            <i data-lucide="clock" style="width: 20px; height: 20px;"></i>
+            Transacoes Recentes
+        </div>
+        <a href="{{ url_for('reports') }}" class="btn btn-sm btn-secondary">
+            <i data-lucide="list" style="width: 14px; height: 14px;"></i>
+            Ver Todas
+        </a>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Titulo</th>
+                    <th>Categoria</th>
+                    <th>Tipo</th>
+                    <th>Valor</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in recent_transactions %}
+                <tr>
+                    <td>{{ t.date.strftime('%d/%m/%Y') }}</td>
+                    <td>{{ t.title }}</td>
+                    <td>
+                        <span class="badge" style="background: {{ t.category.color }}20; color: {{ t.category.color }};">
+                            {{ t.category.name }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge {{ 'badge-success' if t.type == 'income' else 'badge-danger' }}">
+                            {{ 'Receita' if t.type == 'income' else 'Despesa' }}
+                        </span>
+                    </td>
+                    <td style="font-weight: 600; color: {{ 'var(--success)' if t.type == 'income' else 'var(--danger)' }};">
+                        {{ '+' if t.type == 'income' else '-' }} R$ {{ "%.2f"|format(t.amount) }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <i data-lucide="inbox" style="width: 32px; height: 32px;"></i>
+                            </div>
+                            <h3>Nenhuma transacao ainda</h3>
+                            <p>Clique em "Nova Transacao" para comecar</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Monthly Chart
+    const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+    new Chart(monthlyCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ months|tojson }},
+            datasets: [{
+                label: 'Receitas',
+                data: {{ income_data|tojson }},
+                backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                borderColor: '#22c55e',
+                borderWidth: 1,
+                borderRadius: 6
+            }, {
+                label: 'Despesas',
+                data: {{ expense_data|tojson }},
+                backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                borderColor: '#ef4444',
+                borderWidth: 1,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#cbd5e1' } }
+            },
+            scales: {
+                x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(51, 65, 85, 0.3)' } },
+                y: { ticks: { color: '#94a3b8', callback: v => 'R$ ' + v }, grid: { color: 'rgba(51, 65, 85, 0.3)' } }
+            }
+        }
+    });
+
+    // Category Chart
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    new Chart(categoryCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ category_labels|tojson }},
+            datasets: [{
+                data: {{ category_data|tojson }},
+                backgroundColor: {{ category_colors|tojson }},
+                borderColor: '#1e293b',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right', labels: { color: '#cbd5e1' } }
+            }
+        }
+    });
+    lucide.createIcons();
+</script>
+{% endblock %}

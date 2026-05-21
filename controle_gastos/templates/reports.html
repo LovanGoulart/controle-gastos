@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}Relatorios - Controle de Gastos{% endblock %}
+{% block page_icon %}bar-chart-3{% endblock %}
+{% block page_title %}Relatorios{% endblock %}
+
+{% block content %}
+<!-- Export Buttons -->
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header">
+        <div class="card-title">
+            <i data-lucide="download" style="width: 20px; height: 20px;"></i>
+            Exportar Dados
+        </div>
+    </div>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <a href="/api/export/csv" class="btn btn-secondary">
+            <i data-lucide="file-spreadsheet" style="width: 16px; height: 16px;"></i>
+            Exportar CSV
+        </a>
+        <a href="/api/export/excel" class="btn btn-secondary">
+            <i data-lucide="file-spreadsheet" style="width: 16px; height: 16px;"></i>
+            Exportar Excel
+        </a>
+        <a href="/api/export/pdf" class="btn btn-secondary">
+            <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
+            Exportar PDF
+        </a>
+    </div>
+</div>
+
+<!-- Period Filter -->
+<div class="tabs">
+    <button class="tab active" onclick="loadReport('week', this)">Semana</button>
+    <button class="tab" onclick="loadReport('month', this)">Mes</button>
+    <button class="tab" onclick="loadReport('year', this)">Ano</button>
+    <button class="tab" onclick="loadReport('all', this)">Tudo</button>
+</div>
+
+<!-- Summary Stats -->
+<div class="grid grid-3" style="margin-bottom: 24px;">
+    <div class="stat-card">
+        <div class="stat-header">
+            <div class="stat-label">Total Receitas</div>
+            <div class="stat-icon income">
+                <i data-lucide="trending-up" style="width: 24px; height: 24px;"></i>
+            </div>
+        </div>
+        <div class="stat-value" id="totalIncome" style="color: var(--success);">R$ 0,00</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-header">
+            <div class="stat-label">Total Despesas</div>
+            <div class="stat-icon expense">
+                <i data-lucide="trending-down" style="width: 24px; height: 24px;"></i>
+            </div>
+        </div>
+        <div class="stat-value" id="totalExpense" style="color: var(--danger);">R$ 0,00</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-header">
+            <div class="stat-label">Saldo</div>
+            <div class="stat-icon balance">
+                <i data-lucide="wallet" style="width: 24px; height: 24px;"></i>
+            </div>
+        </div>
+        <div class="stat-value" id="totalBalance">R$ 0,00</div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="grid grid-2" style="margin-bottom: 24px;">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="pie-chart" style="width: 20px; height: 20px;"></i>
+                Distribuicao por Categoria
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="reportCategoryChart"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="line-chart" style="width: 20px; height: 20px;"></i>
+                Evolucao no Periodo
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="reportTrendChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Transactions Table -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">
+            <i data-lucide="list" style="width: 20px; height: 20px;"></i>
+            Todas as Transacoes
+        </div>
+        <div class="search-box" style="width: 300px;">
+            <i data-lucide="search" style="width: 16px; height: 16px;"></i>
+            <input type="text" class="form-input" id="searchTransactions" placeholder="Buscar transacoes..." onkeyup="filterTransactions()">
+        </div>
+    </div>
+    <div class="filters-bar">
+        <select class="form-select" id="filterType" onchange="filterTransactions()">
+            <option value="">Todos os tipos</option>
+            <option value="income">Receitas</option>
+            <option value="expense">Despesas</option>
+        </select>
+        <select class="form-select" id="filterCategory" onchange="filterTransactions()">
+            <option value="">Todas as categorias</option>
+        </select>
+        <input type="date" class="form-input" id="filterDateFrom" onchange="filterTransactions()">
+        <input type="date" class="form-input" id="filterDateTo" onchange="filterTransactions()">
+    </div>
+    <div class="table-responsive">
+        <table class="data-table" id="transactionsTable">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Titulo</th>
+                    <th>Categoria</th>
+                    <th>Tipo</th>
+                    <th>Valor</th>
+                    <th>Metodo</th>
+                    <th class="no-print">Acoes</th>
+                </tr>
+            </thead>
+            <tbody id="transactionsBody">
+                <tr><td colspan="7" style="text-align: center; padding: 40px;"><div class="loading"></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+let reportCategoryChart = null;
+let reportTrendChart = null;
+
+async function loadReport(period, btn) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    try {
+        const response = await fetch(`/api/reports/summary?period=${period}`);
+        const data = await response.json();
+
+        document.getElementById('totalIncome').textContent = formatCurrency(data.total_income);
+        document.getElementById('totalExpense').textContent = formatCurrency(data.total_expense);
+        document.getElementById('totalBalance').textContent = formatCurrency(data.balance);
+        document.getElementById('totalBalance').style.color = data.balance >= 0 ? 'var(--success)' : 'var(--danger)';
+
+        // Category Chart
+        const catLabels = data.by_category.filter(c => c.type === 'expense').map(c => c.name);
+        const catData = data.by_category.filter(c => c.type === 'expense').map(c => c.amount);
+        const catColors = data.by_category.filter(c => c.type === 'expense').map(c => c.color);
+
+        if (reportCategoryChart) reportCategoryChart.destroy();
+        reportCategoryChart = new Chart(document.getElementById('reportCategoryChart'), {
+            type: 'doughnut',
+            data: { labels: catLabels, datasets: [{ data: catData, backgroundColor: catColors, borderColor: '#1e293b', borderWidth: 2 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#cbd5e1' } } } }
+        });
+
+        // Trend Chart
+        const months = [...new Set(data.monthly.map(m => m.month))].sort();
+        const incData = months.map(m => { const f = data.monthly.find(x => x.month === m && x.type === 'income'); return f ? f.amount : 0; });
+        const expData = months.map(m => { const f = data.monthly.find(x => x.month === m && x.type === 'expense'); return f ? f.amount : 0; });
+
+        if (reportTrendChart) reportTrendChart.destroy();
+        reportTrendChart = new Chart(document.getElementById('reportTrendChart'), {
+            type: 'line',
+            data: {
+                labels: months,
+                datasets: [
+                    { label: 'Receitas', data: incData, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', fill: true, tension: 0.4 },
+                    { label: 'Despesas', data: expData, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill: true, tension: 0.4 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#cbd5e1' } } },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(51,65,85,0.3)' } },
+                    y: { ticks: { color: '#94a3b8', callback: v => 'R$ ' + v }, grid: { color: 'rgba(51,65,85,0.3)' } }
+                }
+            }
+        });
+    } catch (error) { console.error('Erro ao carregar relatorio:', error); }
+}
+
+async function loadTransactions() {
+    try {
+        const response = await fetch('/api/transactions');
+        const data = await response.json();
+        renderTransactions(data.transactions);
+    } catch (error) { console.error('Erro:', error); }
+}
+
+function renderTransactions(transactions) {
+    const tbody = document.getElementById('transactionsBody');
+    if (!transactions.length) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon"><i data-lucide="inbox" style="width: 32px; height: 32px;"></i></div><h3>Nenhuma transacao encontrada</h3></div></td></tr>';
+        lucide.createIcons();
+        return;
+    }
+    tbody.innerHTML = transactions.map(t => `
+        <tr>
+            <td>${formatDate(t.date)}</td>
+            <td>${t.title}</td>
+            <td><span class="badge" style="background: ${t.category.color}20; color: ${t.category.color};">${t.category.name}</span></td>
+            <td><span class="badge ${t.type === 'income' ? 'badge-success' : 'badge-danger'}">${t.type === 'income' ? 'Receita' : 'Despesa'}</span></td>
+            <td style="font-weight: 600; color: ${t.type === 'income' ? 'var(--success)' : 'var(--danger)'};">${t.type === 'income' ? '+' : '-'} ${formatCurrency(t.amount)}</td>
+            <td>${t.payment_method}</td>
+            <td class="actions no-print">
+                <button class="btn-icon btn-sm" onclick="deleteTransaction(${t.id})" style="width: 32px; height: 32px;" data-tooltip="Excluir">
+                    <i data-lucide="trash-2" style="width: 14px; height: 14px; color: var(--danger);"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    lucide.createIcons();
+}
+
+async function filterTransactions() {
+    const params = new URLSearchParams();
+    const search = document.getElementById('searchTransactions').value;
+    const type = document.getElementById('filterType').value;
+    const category = document.getElementById('filterCategory').value;
+    const dateFrom = document.getElementById('filterDateFrom').value;
+    const dateTo = document.getElementById('filterDateTo').value;
+    if (search) params.append('search', search);
+    if (type) params.append('type', type);
+    if (category) params.append('category', category);
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+
+    try {
+        const response = await fetch('/api/transactions?' + params.toString());
+        const data = await response.json();
+        renderTransactions(data.transactions);
+    } catch (error) { console.error('Erro:', error); }
+}
+
+async function deleteTransaction(id) {
+    if (!confirm('Tem certeza que deseja excluir esta transacao?')) return;
+    try {
+        const response = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+            showToast('success', 'Sucesso!', 'Transacao excluida.');
+            loadTransactions();
+        }
+    } catch (error) { showToast('error', 'Erro!', 'Nao foi possivel excluir.'); }
+}
+
+async function loadCategories() {
+    try {
+        const response = await fetch('/api/categories');
+        const data = await response.json();
+        const select = document.getElementById('filterCategory');
+        select.innerHTML = '<option value="">Todas as categorias</option>';
+        data.categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.id; option.textContent = cat.name;
+            select.appendChild(option);
+        });
+    } catch (error) { console.error('Erro:', error); }
+}
+
+loadReport('month', document.querySelector('.tab'));
+loadTransactions();
+loadCategories();
+</script>
+{% endblock %}

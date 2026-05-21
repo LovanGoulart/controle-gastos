@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios - Controle de Gastos{% endblock %}
+{% block page_icon %}users{% endblock %}
+{% block page_title %}Gerenciamento de Usuarios{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">
+            <i data-lucide="users" style="width: 20px; height: 20px;"></i>
+            Todos os Usuarios
+        </div>
+        <div class="search-box" style="width: 300px;">
+            <i data-lucide="search" style="width: 16px; height: 16px;"></i>
+            <input type="text" class="form-input" id="searchUsers" placeholder="Buscar usuarios..." onkeyup="filterUsers()">
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table" id="usersTable">
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>E-mail</th>
+                    <th>Funcao</th>
+                    <th>Status</th>
+                    <th>Transacoes</th>
+                    <th>Criado em</th>
+                    <th>Acoes</th>
+                </tr>
+            </thead>
+            <tbody id="usersBody">
+                {% for user in users %}
+                <tr>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <img src="{{ user.avatar }}" alt="" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
+                            <span style="font-weight: 600;">{{ user.name }}</span>
+                        </div>
+                    </td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                        <span class="badge {{ 'badge-info' if user.role == 'admin' else 'badge-warning' }}">
+                            {{ 'Administrador' if user.role == 'admin' else 'Usuario' }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge {{ 'badge-success' if user.is_active else 'badge-danger' }}">
+                            {{ 'Ativo' if user.is_active else 'Inativo' }}
+                        </span>
+                    </td>
+                    <td>{{ user.transactions|length }}</td>
+                    <td>{{ user.created_at.strftime('%d/%m/%Y') }}</td>
+                    <td class="actions">
+                        <button class="btn-icon btn-sm" onclick="editUser({{ user.id }})" style="width: 32px; height: 32px;" data-tooltip="Editar">
+                            <i data-lucide="edit-2" style="width: 14px; height: 14px;"></i>
+                        </button>
+                        {% if user.id != current_user.id %}
+                        <button class="btn-icon btn-sm" onclick="deleteUser({{ user.id }})" style="width: 32px; height: 32px;" data-tooltip="Excluir">
+                            <i data-lucide="trash-2" style="width: 14px; height: 14px; color: var(--danger);"></i>
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal-overlay" id="editUserModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">Editar Usuario</h2>
+            <button class="modal-close" onclick="closeEditModal()">
+                <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="editUserForm">
+                <input type="hidden" name="user_id" id="editUserId">
+                <div class="form-group">
+                    <label class="form-label">Nome</label>
+                    <input type="text" class="form-input" name="name" id="editUserName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">E-mail</label>
+                    <input type="email" class="form-input" name="email" id="editUserEmail" required>
+                </div>
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Funcao</label>
+                        <select class="form-select" name="role" id="editUserRole">
+                            <option value="user">Usuario</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" name="is_active" id="editUserStatus">
+                            <option value="true">Ativo</option>
+                            <option value="false">Inativo</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveUser()">
+                <i data-lucide="save" style="width: 16px; height: 16px;"></i>Salvar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function filterUsers() {
+    const search = document.getElementById('searchUsers').value.toLowerCase();
+    document.querySelectorAll('#usersBody tr').forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(search) ? '' : 'none';
+    });
+}
+
+async function editUser(id) {
+    try {
+        const response = await fetch(`/api/users/${id}`);
+        const data = await response.json();
+        document.getElementById('editUserId').value = data.id;
+        document.getElementById('editUserName').value = data.name;
+        document.getElementById('editUserEmail').value = data.email;
+        document.getElementById('editUserRole').value = data.role;
+        document.getElementById('editUserStatus').value = data.is_active.toString();
+        document.getElementById('editUserModal').classList.add('active');
+        lucide.createIcons();
+    } catch (error) { showToast('error', 'Erro!', 'Nao foi possivel carregar usuario.'); }
+}
+
+function closeEditModal() {
+    document.getElementById('editUserModal').classList.remove('active');
+}
+
+async function saveUser() {
+    const id = document.getElementById('editUserId').value;
+    const data = {
+        name: document.getElementById('editUserName').value,
+        email: document.getElementById('editUserEmail').value,
+        role: document.getElementById('editUserRole').value,
+        is_active: document.getElementById('editUserStatus').value === 'true'
+    };
+    try {
+        const response = await fetch(`/api/users/${id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+        });
+        if (response.ok) {
+            showToast('success', 'Sucesso!', 'Usuario atualizado.');
+            closeEditModal();
+            setTimeout(() => location.reload(), 1000);
+        }
+    } catch (error) { showToast('error', 'Erro!', 'Nao foi possivel salvar.'); }
+}
+
+async function deleteUser(id) {
+    if (!confirm('Tem certeza que deseja excluir este usuario?')) return;
+    try {
+        const response = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+            showToast('success', 'Sucesso!', 'Usuario excluido.');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            const error = await response.json();
+            showToast('error', 'Erro!', error.error);
+        }
+    } catch (error) { showToast('error', 'Erro!', 'Nao foi possivel excluir.'); }
+}
+
+document.getElementById('editUserModal').addEventListener('click', function(e) {
+    if (e.target === this) closeEditModal();
+});
+</script>
+{% endblock %}
