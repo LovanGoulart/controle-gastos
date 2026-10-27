@@ -59,8 +59,8 @@ A interface também apresenta uma opção de transação recorrente, cujo compor
 
 Tela com filtros de período, totais de receitas e despesas, saldo, gráficos e opções de exportação.
 
-<a href="relat%C3%B3rios%281%29.png">
-  <img src="relat%C3%B3rios%281%29.png" alt="Relatórios financeiros e opções de exportação" width="900">
+<a href="relat%C3%B3rios.png">
+  <img src="relat%C3%B3rios.png" alt="Relatórios financeiros e opções de exportação" width="900">
 </a>
 
 ## Fluxo proposto de utilização
